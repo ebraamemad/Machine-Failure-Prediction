@@ -1,15 +1,16 @@
+# train.py
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import numpy as np
+from model import SimpleNN
 
 # قراءة البيانات
-df = pd.read_csv(r"E:\projects of camp\Machine Failure Prediction\data\data.csv")
-x = df.drop(columns=['fail'])  # استبدل 'target' باسم العمود الهدف عندك
+df = pd.read_csv("data/data.csv")
+x = df.drop(columns=['fail'])
 y = df['fail']
 
 # توحيد البيانات
@@ -43,54 +44,47 @@ test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
 train_loader = DataLoader(train_dataset, batch_size=20, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=20)
 
-# تعريف النموذج
-class SimpleNN(nn.Module):
-    def __init__(self, input_dim,hidden_dim,dropout_rate):
-        
-        super().__init__()
-        self.net= nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_dim, 1),
-            nn.Sigmoid()
-        )
-     
-    def forward(self, x):
-        x = self.net(x)
-        return x
+# تدريب الموديل
+input_dim = x_train.shape[1]
+hidden_dim = 32
+dropout_rate = 0.2
+model = SimpleNN(input_dim, hidden_dim, dropout_rate)
 
-def train_model(params):
-    
-    model = SimpleNN(x_train.shape[1], params['hidden_dim'], params['dropout_rate'])
-    loss_fn = nn.BCELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
+loss_fn = nn.BCELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-# التدريب
-    for epoch in range(20):
-        model.train()
-        running_loss = 0.0
-        for inputs, targets in train_loader:
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = loss_fn(outputs, targets)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        print(f"Epoch {epoch+1}/20, Loss: {running_loss/len(train_loader):.4f}")
-# التقييم
-    model.eval()
+for epoch in range(20):
+    model.train()
+    total_loss = 0
+    for inputs, targets in train_loader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = loss_fn(outputs, targets)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader):.4f}")
 
-    with torch.no_grad():
-        test_pred = model(x_test_tensor)
-        test_loss = loss_fn(test_pred, y_test_tensor)
-        test_accuracy = ((test_pred > 0.5).float() == y_test_tensor).float().mean().item()
-        print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
-    # حفظ النموذج
-    torch.save(model.state_dict(), "model.pth")
-    return model, test_accuracy, test_loss.item()
+# حفظ النموذج مع المعلمات
+torch.save({
+    "model_state": model.state_dict(),
+    "input_dim": input_dim,
+    "hidden_dim": hidden_dim,
+    "dropout_rate": dropout_rate
+}, "model.pth")
 
-train_model({'learning_rate': 0.001, 'hidden_dim': 32, 'dropout_rate': 0.2})     
+import joblib
+joblib.dump(scaler, "scaler.pkl")
 
-        
-    
+# تقييم النموذج
+model.eval()
+total_correct = 0
+total_samples = 0
+with torch.no_grad():
+    for inputs, targets in test_loader:
+        outputs = model(inputs)
+        predicted = (outputs > 0.5).float()
+        total_correct += (predicted == targets).sum().item()
+        total_samples += targets.size(0)
+accuracy = total_correct / total_samples
+print(f"Test Accuracy: {accuracy:.4f}")
