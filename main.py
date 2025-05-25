@@ -21,13 +21,56 @@ model.eval()
 
 # تعريف شكل البيانات القادمة
 class InputData(BaseModel):
-    features: list
+    footfall: int
+    tempMode: int 
+    AQ: int    
+    USS: int  
+    CS: int   
+    VOC: int
+    RP: int
+    IP: int
+    Temperature: int
+    
+    
+    
+    
+    
 
+# --- 5. Endpoint للتنبؤ
 @app.post("/predict")
 def predict(data: InputData):
-    features = np.array(data.features).reshape(1, -1)
-    features_scaled = scaler.transform(features)
-    input_tensor = torch.tensor(features_scaled, dtype=torch.float32)
+    # تحويل البيانات لقائمة
+    input_list = [[
+        data.footfall,
+        data.tempMode,
+        data.AQ,
+        data.USS,   
+        data.CS,
+        data.VOC,
+        data.RP,
+        data.IP,
+        data.Temperature
+        
+    ]]
+
+    # تطبيق StandardScaler
+    scaled_input = scaler.transform(input_list)
+
+    # تحويل إلى Tensor
+    input_tensor = torch.tensor(scaled_input, dtype=torch.float32)
+
+    # تنفيذ التنبؤ
     with torch.no_grad():
         prediction = model(input_tensor)
-    return {"prediction": float(prediction.item())}
+        pred_class = int((prediction > 0.5).item())
+        prob = float(prediction.item())
+
+    return {
+        "prediction": pred_class,
+        "probability": round(prob, 4)
+    }
+##########################################
+# يمكن يضا تحميل افشل موديل الذي درب من optuna والموجود في mlflow 
+# import mlflow
+# model_uri = "runs:/<run_id>/model" 
+# model = mlflow.pytorch.load_model(model_uri)
