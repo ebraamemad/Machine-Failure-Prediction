@@ -1,4 +1,3 @@
-# model.py
 import torch.nn as nn
 
 class SimpleNN(nn.Module):

@@ -7,39 +7,29 @@ from model import SimpleNN
 
 app = FastAPI()
 
-# تحميل النموذج والمحول
-checkpoint = torch.load("model.pth")
+
 scaler = joblib.load("scaler.pkl")
 
-input_dim = checkpoint["input_dim"]
-hidden_dim = checkpoint["hidden_dim"]
-dropout_rate = checkpoint["dropout_rate"]
-
-model = SimpleNN(input_dim, hidden_dim, dropout_rate)
-model.load_state_dict(checkpoint["model_state"])
+model = SimpleNN(input_dim=9, hidden_dim=32, dropout_rate=0.2)
+model.load_state_dict(torch.load("model.pth"))
 model.eval()
 
 # تعريف شكل البيانات القادمة
 class InputData(BaseModel):
     footfall: int
     tempMode: int 
-    AQ: int    
+    AQ: int      
     USS: int  
     CS: int   
     VOC: int
     RP: int
     IP: int
     Temperature: int
-    
-    
-    
-    
-    
 
-# --- 5. Endpoint للتنبؤ
+#Endpoint للتنبؤ
 @app.post("/predict")
 def predict(data: InputData):
-    # تحويل البيانات لقائمة
+   
     input_list = [[
         data.footfall,
         data.tempMode,
